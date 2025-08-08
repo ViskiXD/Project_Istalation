@@ -791,7 +791,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   fluidPosition: {x: 0, y: 1, z: 0}
-  fluidSize: {x: 5, y: 2, z: 4}
+  fluidSize: {x: 3, y: 2, z: 4}
   fluidScale: 1
   spawnShape: 2
   soupGravity: -10
