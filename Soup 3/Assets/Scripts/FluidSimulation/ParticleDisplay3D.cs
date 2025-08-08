@@ -14,6 +14,9 @@ namespace Seb.Fluid.Rendering
         public int gradientResolution = 64;
         public float velocityDisplayMax = 15f;
         public int meshResolution = 4;
+        public bool useCpuInstancing = true;
+        [Min(1)] public int renderStride = 2; // draw every Nth particle to reduce cost
+        [Min(128)] public int maxInstances = 20000; // global cap for draw calls
         
         [Header("Shaders")]
         public Shader shaderShaded;
@@ -26,6 +29,8 @@ namespace Seb.Fluid.Rendering
         public Material mat { get; private set; }
         private Texture2D colourTexture;
         private ComputeBuffer argsBuffer;
+        private Matrix4x4[] matrixBuffer;
+        private Vector3[] positionsCache;
         
         public enum DisplayMode
         {
@@ -53,12 +58,33 @@ namespace Seb.Fluid.Rendering
             CreateMesh();
             CreateMaterial();
             CreateColourTexture();
-            CreateArgsBuffer();
+            if (!useCpuInstancing)
+            {
+                CreateArgsBuffer();
+                // For indirect path, make sure we use the reference billboard shader
+                Shader indirectShader = Shader.Find("Fluid/ParticleBillboard");
+                if (indirectShader != null && (mat == null || mat.shader != indirectShader))
+                {
+                    mat = new Material(indirectShader);
+                    mat.enableInstancing = true;
+                }
+            }
+            else
+            {
+                matrixBuffer = new Matrix4x4[1023];
+            }
         }
         
         void CreateMesh()
         {
-            mesh = CreateQuadMesh();
+            if (mode == DisplayMode.Mesh3D)
+            {
+                mesh = CreateSphereMesh();
+            }
+            else
+            {
+                mesh = CreateQuadMesh();
+            }
         }
         
         Mesh CreateQuadMesh()
@@ -94,16 +120,34 @@ namespace Seb.Fluid.Rendering
         
         void CreateMaterial()
         {
-            Shader targetShader = Shader.Find("Sprites/Default");
-            
+            Shader targetShader = null;
+            if (mode == DisplayMode.Billboard)
+            {
+                targetShader = useCpuInstancing ? Shader.Find("Fluid/InstancedBillboardCircle") : Shader.Find("Fluid/ParticleBillboard");
+            }
+            else
+            {
+                targetShader = Shader.Find("Fluid/Particle3DSurf");
+            }
+
+            if (targetShader == null)
+            {
+                targetShader = Shader.Find("Universal Render Pipeline/Unlit")
+                                ?? Shader.Find("Unlit/Color")
+                                ?? Shader.Find("Standard")
+                                ?? Shader.Find("Sprites/Default");
+            }
             if (targetShader == null)
             {
                 Debug.LogError("ParticleDisplay3D: No suitable shader found!");
                 return;
             }
-            
+
             mat = new Material(targetShader);
             mat.name = $"Particle Material ({mode})";
+            mat.enableInstancing = true;
+            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", Color.white);
+            else if (mat.HasProperty("_Color")) mat.SetColor("_Color", Color.white);
         }
         
         void CreateColourTexture()
@@ -159,13 +203,65 @@ namespace Seb.Fluid.Rendering
         {
             if (sim == null || sim.positionBuffer == null || mat == null || mesh == null)
                 return;
-                
-            RenderParticles();
+
+            if (useCpuInstancing)
+            {
+                RenderParticlesCpuBillboards();
+            }
+            else
+            {
+                // Ensure args buffer exists if we switched rendering mode at runtime
+                if (argsBuffer == null) { CreateArgsBuffer(); }
+
+                // Ensure correct shader & bindings in indirect path
+                if (mode == DisplayMode.Billboard)
+                {
+                    if (mat.shader.name != "Fluid/ParticleBillboard")
+                    {
+                        Shader s = Shader.Find("Fluid/ParticleBillboard");
+                        if (s != null)
+                        {
+                            mat = new Material(s);
+                            mat.enableInstancing = true;
+                        }
+                    }
+                    if (mat.shader.name == "Fluid/ParticleBillboard")
+                    {
+                        mat.SetBuffer("Positions", sim.positionBuffer);
+                        if (sim.velocityBuffer != null) mat.SetBuffer("Velocities", sim.velocityBuffer);
+                        if (colourTexture != null) mat.SetTexture("ColourMap", colourTexture);
+                        mat.SetFloat("scale", Mathf.Max(0.01f, scale));
+                        mat.SetFloat("velocityMax", Mathf.Max(0.001f, velocityDisplayMax));
+                    }
+                }
+                else if (mode == DisplayMode.Mesh3D)
+                {
+                    if (mat.shader.name != "Fluid/Particle3DSurf")
+                    {
+                        Shader s = Shader.Find("Fluid/Particle3DSurf");
+                        if (s != null)
+                        {
+                            mat = new Material(s);
+                            mat.enableInstancing = true;
+                        }
+                    }
+                    if (mat.shader.name == "Fluid/Particle3DSurf")
+                    {
+                        mat.SetBuffer("Positions", sim.positionBuffer);
+                        if (sim.velocityBuffer != null) mat.SetBuffer("Velocities", sim.velocityBuffer);
+                        if (colourTexture != null) mat.SetTexture("ColourMap", colourTexture);
+                        mat.SetFloat("scale", Mathf.Max(0.01f, scale));
+                        mat.SetFloat("velocityMax", Mathf.Max(0.001f, velocityDisplayMax));
+                    }
+                }
+                RenderParticlesIndirect();
+            }
         }
         
-        void RenderParticles()
+        void RenderParticlesIndirect()
         {
             if (sim.numParticles == 0) return;
+            if (argsBuffer == null) { CreateArgsBuffer(); if (argsBuffer == null) return; }
             
             uint[] args = new uint[5];
             argsBuffer.GetData(args);
@@ -174,6 +270,44 @@ namespace Seb.Fluid.Rendering
             
             Bounds bounds = new Bounds(transform.position, Vector3.one * 1000f);
             Graphics.DrawMeshInstancedIndirect(mesh, 0, mat, bounds, argsBuffer);
+        }
+        
+        void RenderParticlesCpuBillboards()
+        {
+            int count = sim.numParticles;
+            if (count == 0) return;
+            
+            if (positionsCache == null || positionsCache.Length != count)
+            {
+                positionsCache = new Vector3[count];
+            }
+            sim.positionBuffer.GetData(positionsCache);
+            
+            // Sample every Nth particle
+            int totalToDraw = Mathf.Min(maxInstances, Mathf.CeilToInt(count / Mathf.Max(1f, (float)renderStride)));
+            int emitted = 0;
+            while (emitted < totalToDraw)
+            {
+                int batchCount = Mathf.Min(1023, totalToDraw - emitted);
+                for (int i = 0; i < batchCount; i++)
+                {
+                    int srcIndex = (emitted + i) * Mathf.Max(1, renderStride);
+                    if (srcIndex >= count) { batchCount = i; break; }
+                    Vector3 p = positionsCache[srcIndex];
+                    // Billboard: align quad to camera
+                    Quaternion rot = Camera.main ? Camera.main.transform.rotation : Quaternion.identity;
+                    matrixBuffer[i] = Matrix4x4.TRS(p, rot, Vector3.one * Mathf.Max(0.01f, scale));
+                }
+                if (batchCount > 0)
+                {
+                    Graphics.DrawMeshInstanced(mesh, 0, mat, matrixBuffer, batchCount);
+                    emitted += batchCount;
+                }
+                else
+                {
+                    break;
+                }
+            }
         }
         
         void OnDestroy()
@@ -194,7 +328,22 @@ namespace Seb.Fluid.Rendering
                     DestroyImmediate(colourTexture);
             }
             
-            argsBuffer?.Release();
+            if (argsBuffer != null)
+            {
+                argsBuffer.Release();
+                argsBuffer = null;
+            }
+        }
+
+        Mesh CreateSphereMesh()
+        {
+            GameObject temp = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            Mesh sphere = temp.GetComponent<MeshFilter>().sharedMesh;
+            if (Application.isPlaying)
+                Destroy(temp);
+            else
+                DestroyImmediate(temp);
+            return sphere;
         }
     }
 }

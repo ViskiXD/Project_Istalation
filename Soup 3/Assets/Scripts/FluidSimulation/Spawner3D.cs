@@ -43,21 +43,30 @@ namespace Seb.Fluid.Simulation
 
             int i = 0;
 
+            if (numPerAxis <= 1)
+            {
+                // Single particle at centre
+                points[0] = centre;
+                velocities[0] = initialVel;
+                return (points, velocities);
+            }
+
+            float denom = Mathf.Max(1e-6f, (numPerAxis - 1f));
             for (int x = 0; x < numPerAxis; x++)
             {
                 for (int y = 0; y < numPerAxis; y++)
                 {
                     for (int z = 0; z < numPerAxis; z++)
                     {
-                        float tx = x / (numPerAxis - 1f);
-                        float ty = y / (numPerAxis - 1f);
-                        float tz = z / (numPerAxis - 1f);
+                        float tx = x / denom;
+                        float ty = y / denom;
+                        float tz = z / denom;
 
                         float px = (tx - 0.5f) * size.x + centre.x;
                         float py = (ty - 0.5f) * size.y + centre.y;
                         float pz = (tz - 0.5f) * size.z + centre.z;
                         Vector3 jitter = UnityEngine.Random.insideUnitSphere * jitterStrength;
-                        points[i] = new Vector3(px, py, pz) + jitter;
+                        points[i] = new Vector3(px, py, pz) + jitter * 0.25f;
                         velocities[i] = initialVel;
                         i++;
                     }

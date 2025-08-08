@@ -19,7 +19,7 @@ public class SoupFluidController : MonoBehaviour
     
     [Header("Visual Settings")]
     [SerializeField] private ParticleDisplay3D.DisplayMode renderMode = ParticleDisplay3D.DisplayMode.Billboard;
-    [SerializeField] private float particleSize = 3.0f;
+    [SerializeField] private float particleSize = 0.08f;
     [SerializeField] private Gradient soupColor;
     [SerializeField] private bool enableFoam = true;
     
@@ -78,15 +78,27 @@ public class SoupFluidController : MonoBehaviour
         spawnerObj.transform.SetParent(fluidSimContainer.transform);
         spawner = spawnerObj.AddComponent<Spawner3D>();
         
-        // Setup spawn region for soup
-        spawner.particleSpawnDensity = particleCount;
-        spawner.jitterStrength = 0.05f;
-        spawner.initialVel = new Vector3(0, -0.5f, 0);
+        // Determine bowl bounds to size the fluid volume appropriately
+        Bounds bowlBounds = GetBowlBounds();
+        Vector3 bowlSize = bowlBounds.size;
+        Vector3 fluidBoxSize = new Vector3(
+            Mathf.Max(0.1f, bowlSize.x * 0.8f),
+            Mathf.Max(0.1f, bowlSize.y * 0.6f),
+            Mathf.Max(0.1f, bowlSize.z * 0.8f)
+        );
+
+        // Setup spawn region for soup with density computed to approximately match requested particleCount
+        float s = Mathf.Min(fluidBoxSize.x, fluidBoxSize.z);
+        float volume = Mathf.Max(0.001f, s * s * s);
+        int densityForTarget = Mathf.Max(1, Mathf.RoundToInt(particleCount / volume));
+        spawner.particleSpawnDensity = densityForTarget;
+        spawner.jitterStrength = 0.02f;
+        spawner.initialVel = Vector3.zero;
         spawner.spawnRegions = new Spawner3D.SpawnRegion[1];
         spawner.spawnRegions[0] = new Spawner3D.SpawnRegion
         {
-            centre = transform.position + fluidPosition,
-            size = 1.5f,
+            centre = bowlBounds.center + new Vector3(0, -fluidBoxSize.y * 0.25f, 0),
+            size = s,
             debugDisplayCol = Color.cyan
         };
         
@@ -108,8 +120,8 @@ public class SoupFluidController : MonoBehaviour
         fluidSim.normalTimeScale = 1f;
         fluidSim.iterationsPerFrame = 4;
         
-        fluidSimObj.transform.position = transform.position + fluidPosition;
-        fluidSimObj.transform.localScale = fluidSize;
+        fluidSimObj.transform.position = bowlBounds.center + new Vector3(0, -fluidBoxSize.y * 0.25f, 0);
+        fluidSimObj.transform.localScale = new Vector3(fluidBoxSize.x, fluidBoxSize.y, fluidBoxSize.z);
         
         // Setup Renderer
         GameObject particleRendererObj = new GameObject("FluidRenderer");
@@ -119,6 +131,25 @@ public class SoupFluidController : MonoBehaviour
         Invoke(nameof(SetupRenderer), 0.2f);
         
         UpdateFluidTransform();
+    }
+
+    Bounds GetBowlBounds()
+    {
+        if (bowlController != null)
+        {
+            GameObject bowlObj = bowlController.gameObject;
+            Collider col = bowlObj.GetComponent<Collider>();
+            if (col == null)
+            {
+                col = bowlObj.GetComponentInChildren<Collider>();
+            }
+            if (col != null)
+            {
+                return col.bounds;
+            }
+        }
+        // Fallback: reasonable default around our transform
+        return new Bounds(transform.position + fluidPosition, fluidSize);
     }
     
     void SetupRenderer()
@@ -132,6 +163,10 @@ public class SoupFluidController : MonoBehaviour
         particleRenderer.gradientResolution = 64;
         particleRenderer.meshResolution = 4;
         particleRenderer.velocityDisplayMax = 15f;
+        // Force CPU instancing for billboard to stabilize rendering on all pipelines
+        particleRenderer.useCpuInstancing = (renderMode == ParticleDisplay3D.DisplayMode.Billboard);
+        particleRenderer.renderStride = 1;
+        particleRenderer.maxInstances = 20000;
         
         Debug.Log($"🎨 Renderer setup complete! Mode: {renderMode}, Particles: {CurrentParticleCount}");
     }
