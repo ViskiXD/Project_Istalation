@@ -708,8 +708,8 @@ MonoBehaviour:
   fluidComputeShader: {fileID: 0}
   particleShader3D: {fileID: 0}
   particleBillboardShader: {fileID: 0}
-  soupParticleCount: 2000
-  soupSpawnSize: {x: 0.8, y: 0.3, z: 0.8}
+  soupParticleCount: 10000
+  soupSpawnSize: {x: 0.5, y: 0.5, z: 0.5}
   soupViscosity: 0.3
   soupBaseColor: {r: 0.8, g: 0.4, b: 0.2, a: 1}
 --- !u!1 &832575517
@@ -790,10 +790,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2a4f324dafd9441c6a1d5ea727d77753, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  fluidPosition: {x: 0, y: 0.5, z: 0}
-  fluidSize: {x: 1, y: 1, z: 1}
+  fluidPosition: {x: 0, y: 1, z: 0}
+  fluidSize: {x: 5, y: 2, z: 4}
   fluidScale: 1
-  soupGravity: -100
+  spawnShape: 2
+  soupGravity: -10
   soupViscosity: 1
   soupDensity: 3000
   particleCount: 10000
@@ -832,7 +833,7 @@ MonoBehaviour:
     m_NumAlphaKeys: 2
   enableFoam: 1
   bowlController: {fileID: 68441054}
-  bowlInfluenceStrength: 0.05
+  bowlInfluenceStrength: 0.5
   followBowlRotation: 1
   pauseSimulation: 0
   resetSimulation: 0

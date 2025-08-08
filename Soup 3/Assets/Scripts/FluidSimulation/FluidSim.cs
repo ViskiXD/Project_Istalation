@@ -23,6 +23,11 @@ namespace Seb.Fluid.Simulation
         public float pressureMultiplier = 288;
         public float nearPressureMultiplier = 2.15f;
         public float viscosityStrength = 0;
+
+        public enum BoundaryShape { Cube, Cylinder, TaperedCylinder }
+        public BoundaryShape boundaryShape = BoundaryShape.Cube;
+        public float boundaryRadiusBottomNorm = 0.5f; // normalised (0.5 == halfSize)
+        public float boundaryRadiusTopNorm = 0.5f;
         [Range(0, 1)] public float collisionDamping = 0.95f;
 
         [Header("Foam Settings")] public bool foamActive;
@@ -341,6 +346,9 @@ namespace Seb.Fluid.Simulation
             compute.SetFloat("viscosityStrength", viscosityStrength);
             compute.SetVector("boundarySize", simBoundsSize);
             compute.SetVector("boundaryCenter", simBoundsCentre);
+            compute.SetInt("boundaryShape", (int)boundaryShape);
+            compute.SetFloat("radiusBottom", boundaryRadiusBottomNorm);
+            compute.SetFloat("radiusTop", boundaryRadiusTopNorm);
 
             compute.SetMatrix("localToWorld", transform.localToWorldMatrix);
             compute.SetMatrix("worldToLocal", transform.worldToLocalMatrix);

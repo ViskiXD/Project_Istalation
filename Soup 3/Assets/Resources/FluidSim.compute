@@ -49,6 +49,9 @@ const float edgeForce;
 const float edgeForceDst;
 const float3 boundarySize;
 const float3 boundaryCenter;
+const int boundaryShape; // 0=cube 1=cylinder 2=tapered cylinder
+const float radiusBottom;
+const float radiusTop;
 
 const float4x4 localToWorld;
 const float4x4 worldToLocal;
@@ -109,35 +112,68 @@ void ResolveCollisions(inout float3 pos, inout float3 vel, float collisionDampin
     float3 posLocal = mul(worldToLocal, float4(pos, 1)).xyz;
     float3 velocityLocal = mul(worldToLocal, float4(vel, 0)).xyz;
 
-    // Calculate distance from box on each axis (negative values are inside box)
     const float3 halfSize = 0.5;
-    const float3 edgeDst = halfSize - abs(posLocal);
 
-    // Resolve collisions
-    // X collision (side walls)
-    if (edgeDst.x <= 0)
+    if (boundaryShape == 1 || boundaryShape == 2)
     {
-        posLocal.x = halfSize.x * sign(posLocal.x);
-        // If velocity is pointing into wall, zero the component, else leave unchanged (prevents energy loss due to constant bouncing)
-        if (sign(posLocal.x) * velocityLocal.x > 0)
+        // Cylindrical or tapered cylinder (y axis up)
+        float t = (posLocal.y + halfSize.y) / (halfSize.y * 2);
+        t = saturate(t);
+        float currentRadius = (boundaryShape == 2) ? lerp(radiusBottom, radiusTop, t) : radiusTop;
+        float2 horiz = posLocal.xz;
+        float dist = length(horiz);
+        if (dist > currentRadius)
         {
-            velocityLocal.x = 0;
+            float2 dir = horiz / max(1e-6, dist);
+            posLocal.xz = dir * currentRadius;
+            float2 velHoriz = velocityLocal.xz;
+            float outComp = dot(velHoriz, dir);
+            if (outComp > 0)
+            {
+                velHoriz -= (1 + collisionDamping) * outComp * dir;
+                velocityLocal.xz = velHoriz;
+            }
+        }
+
+        // Bottom/top planes
+        if (posLocal.y > halfSize.y)
+        {
+            posLocal.y = halfSize.y;
+            velocityLocal.y *= -collisionDamping;
+        }
+        else if (posLocal.y < -halfSize.y)
+        {
+            posLocal.y = -halfSize.y;
+            velocityLocal.y *= -collisionDamping;
         }
     }
-    // Y collision (bottom / lid)
-    if (edgeDst.y <= 0)
+    else
     {
-        posLocal.y = halfSize.y * sign(posLocal.y);
-        // Reflect velocity with damping (allows sliding when bowl tilts instead of sticking)
-        velocityLocal.y *= -collisionDamping;
-    }
-    // Z collision (side walls)
-    if (edgeDst.z <= 0)
-    {
-        posLocal.z = halfSize.z * sign(posLocal.z);
-        if (sign(posLocal.z) * velocityLocal.z > 0)
+        // Cube bounds (original)
+        const float3 edgeDst = halfSize - abs(posLocal);
+        // X collision (side walls)
+        if (edgeDst.x <= 0)
         {
-            velocityLocal.z = 0;
+            posLocal.x = halfSize.x * sign(posLocal.x);
+            if (sign(posLocal.x) * velocityLocal.x > 0)
+            {
+                velocityLocal.x = 0;
+            }
+        }
+        // Y collision (bottom / lid)
+        if (edgeDst.y <= 0)
+        {
+            posLocal.y = halfSize.y * sign(posLocal.y);
+            velocityLocal.y *= -collisionDamping;
+        }
+        // Z collision (side walls)
+        if (edgeDst.z <= 0)
+        {
+            posLocal.z = halfSize.z * sign(posLocal.z);
+            if (sign(posLocal.z) * velocityLocal.z > 0)
+            {
+                velocityLocal.z = 0;
+            }
         }
     }
 

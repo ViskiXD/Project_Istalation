@@ -2,12 +2,13 @@ Shader "Fluid/InstancedBillboardCircle"
 {
     Properties
     {
-        _BaseColor ("Color", Color) = (1,1,1,1)
+        _BaseColor ("Color", Color) = (0.6,0.8,1,0.6)
     }
     SubShader
     {
-        Tags { "Queue" = "Geometry" "RenderType" = "Opaque" }
-        ZWrite On
+        Tags { "Queue" = "Transparent" "RenderType" = "Transparent" }
+        Blend SrcAlpha OneMinusSrcAlpha
+        ZWrite Off
         Cull Off
 
         Pass

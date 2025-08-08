@@ -4,9 +4,11 @@ Shader "Fluid/BillboardFoam"
     {
         Tags
         {
-            "Queue"="Geometry"
+            "Queue"="Transparent"
+            "RenderType"="Transparent"
         }
-        ZWrite On
+        Blend SrcAlpha OneMinusSrcAlpha
+        ZWrite Off
         ZTest LEqual
         Cull Off
 
@@ -83,7 +85,7 @@ Shader "Fluid/BillboardFoam"
                 if (sqrDst > 1) discard;
 
                 float linearDepth = abs(mul(unity_MatrixV, float4(i.posWorld, 1)).z);
-                return float4(1, LinearDepthToUnityDepth(linearDepth), linearDepth, 1);
+                return float4(0.6, 0.8, 1.0, 0.5);
             }
             ENDCG
         }

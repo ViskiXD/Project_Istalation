@@ -8,6 +8,9 @@ public class SoupFluidController : MonoBehaviour
     [SerializeField] private Vector3 fluidPosition = new Vector3(0, 0.5f, 0);
     [SerializeField] private Vector3 fluidSize = new Vector3(2f, 1f, 2f);
     [SerializeField] private float fluidScale = 1f;
+
+    [Header("Spawn Region Shape")]
+    [SerializeField] private Spawner3D.Shape spawnShape = Spawner3D.Shape.Cylinder;
     
     [Header("Soup Simulation Settings")]
     [SerializeField] private float soupGravity = -1.0f;
@@ -88,8 +91,16 @@ public class SoupFluidController : MonoBehaviour
         );
 
         // Setup spawn region for soup with density computed to approximately match requested particleCount
-        float s = Mathf.Min(fluidBoxSize.x, fluidBoxSize.z);
-        float volume = Mathf.Max(0.001f, s * s * s);
+                float s = Mathf.Min(fluidBoxSize.x, fluidBoxSize.z);
+        Vector3 spawnSize;
+        if (spawnShape == Spawner3D.Shape.Cylinder)
+            spawnSize = new Vector3(s, fluidBoxSize.y, s);
+        else if (spawnShape == Spawner3D.Shape.TaperedCylinder)
+            spawnSize = new Vector3(Mathf.Max(0.01f, fluidSize.x), Mathf.Max(0.01f, fluidSize.y), Mathf.Max(0.01f, fluidSize.z));
+        else
+            spawnSize = fluidBoxSize;
+
+        float volume = Mathf.Max(0.001f, (spawnShape == Spawner3D.Shape.Cylinder) ? Mathf.PI * Mathf.Pow(spawnSize.x * 0.5f, 2) * spawnSize.y : spawnSize.x * spawnSize.y * spawnSize.z);
         int densityForTarget = Mathf.Max(1, Mathf.RoundToInt(particleCount / volume));
         spawner.particleSpawnDensity = densityForTarget;
         spawner.jitterStrength = 0.02f;
@@ -98,7 +109,8 @@ public class SoupFluidController : MonoBehaviour
         spawner.spawnRegions[0] = new Spawner3D.SpawnRegion
         {
             centre = bowlBounds.center + new Vector3(0, -fluidBoxSize.y * 0.25f, 0),
-            size = s,
+            size = spawnSize,
+            shape = spawnShape,
             debugDisplayCol = Color.cyan
         };
         
@@ -113,6 +125,13 @@ public class SoupFluidController : MonoBehaviour
         fluidSim.viscosityStrength = soupViscosity;
         fluidSim.targetDensity = soupDensity;
         fluidSim.collisionDamping = 0.95f;
+        fluidSim.boundaryShape = spawnShape == Spawner3D.Shape.Cylinder ? FluidSim.BoundaryShape.Cylinder : (spawnShape == Spawner3D.Shape.TaperedCylinder ? FluidSim.BoundaryShape.TaperedCylinder : FluidSim.BoundaryShape.Cube);
+        // Radii normalised
+        float bottomD = spawnSize.x;
+        float topD = (spawnShape == Spawner3D.Shape.TaperedCylinder) ? spawnSize.z : spawnSize.x;
+        float scaleX = (spawnShape==Spawner3D.Shape.TaperedCylinder)? Mathf.Max(spawnSize.x, spawnSize.z) : fluidBoxSize.x;
+        fluidSim.boundaryRadiusBottomNorm = Mathf.Max(0.0001f, bottomD / scaleX) * 0.5f;
+        fluidSim.boundaryRadiusTopNorm = Mathf.Max(0.0001f, topD / scaleX) * 0.5f;
         
         fluidSim.smoothingRadius = 0.12f;
         fluidSim.pressureMultiplier = 200f;
@@ -121,7 +140,10 @@ public class SoupFluidController : MonoBehaviour
         fluidSim.iterationsPerFrame = 4;
         
         fluidSimObj.transform.position = bowlBounds.center + new Vector3(0, -fluidBoxSize.y * 0.25f, 0);
-        fluidSimObj.transform.localScale = new Vector3(fluidBoxSize.x, fluidBoxSize.y, fluidBoxSize.z);
+        Vector3 simScale = (spawnShape == Spawner3D.Shape.TaperedCylinder)
+            ? new Vector3(Mathf.Max(spawnSize.x, spawnSize.z), spawnSize.y, Mathf.Max(spawnSize.x, spawnSize.z))
+            : fluidBoxSize;
+        fluidSimObj.transform.localScale = simScale;
         
         // Setup Renderer
         GameObject particleRendererObj = new GameObject("FluidRenderer");

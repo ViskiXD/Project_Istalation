@@ -146,8 +146,9 @@ namespace Seb.Fluid.Rendering
             mat = new Material(targetShader);
             mat.name = $"Particle Material ({mode})";
             mat.enableInstancing = true;
-            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", Color.white);
-            else if (mat.HasProperty("_Color")) mat.SetColor("_Color", Color.white);
+            Color lightBlueTrans = new Color(0.6f, 0.8f, 1f, 0.6f);
+            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", lightBlueTrans);
+            else if (mat.HasProperty("_Color")) mat.SetColor("_Color", lightBlueTrans);
         }
         
         void CreateColourTexture()
@@ -155,14 +156,14 @@ namespace Seb.Fluid.Rendering
             if (colourMap == null)
             {
                 colourMap = new Gradient();
-                GradientColorKey[] colorKeys = new GradientColorKey[3];
-                colorKeys[0] = new GradientColorKey(new Color(0.8f, 0.4f, 0.2f), 0f);
-                colorKeys[1] = new GradientColorKey(new Color(0.9f, 0.6f, 0.3f), 0.5f);
-                colorKeys[2] = new GradientColorKey(new Color(1f, 0.8f, 0.4f), 1f);
+                GradientColorKey[] colorKeys = new GradientColorKey[2];
+                Color lightBlue = new Color(0.6f, 0.8f, 1f);
+                colorKeys[0] = new GradientColorKey(lightBlue, 0f);
+                colorKeys[1] = new GradientColorKey(lightBlue, 1f);
                 
                 GradientAlphaKey[] alphaKeys = new GradientAlphaKey[2];
-                alphaKeys[0] = new GradientAlphaKey(1f, 0f);
-                alphaKeys[1] = new GradientAlphaKey(1f, 1f);
+                alphaKeys[0] = new GradientAlphaKey(0.6f, 0f);
+                alphaKeys[1] = new GradientAlphaKey(0.6f, 1f);
                 
                 colourMap.SetKeys(colorKeys, alphaKeys);
             }
