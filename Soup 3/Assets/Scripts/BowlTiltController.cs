@@ -16,6 +16,7 @@ public class BowlTiltController : MonoBehaviour
         Rigidbody rb = GetComponent<Rigidbody>();
         if (rb != null)
         {
+            // If a Rigidbody is present, ensure we don't accidentally make the bowl unaffected by gravity unless desired
             rb.useGravity = false;
             rb.isKinematic = true;
         }

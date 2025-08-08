@@ -151,9 +151,21 @@ namespace Seb.Fluid.Simulation
         
         void ReleaseBuffers()
         {
-            positionBuffer?.Release();
-            velocityBuffer?.Release();
-            densityBuffer?.Release();
+            if (positionBuffer != null)
+            {
+                positionBuffer.Release();
+                positionBuffer = null;
+            }
+            if (velocityBuffer != null)
+            {
+                velocityBuffer.Release();
+                velocityBuffer = null;
+            }
+            if (densityBuffer != null)
+            {
+                densityBuffer.Release();
+                densityBuffer = null;
+            }
         }
         
         void OnDestroy()

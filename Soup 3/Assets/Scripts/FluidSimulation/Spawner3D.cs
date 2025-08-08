@@ -109,8 +109,8 @@ namespace Seb.Fluid.Simulation
 
             public int CalculateParticleCountPerAxis(int particleDensity)
             {
-                int targetParticleCount = (int)(Volume * particleDensity);
-                int particlesPerAxis = (int)Math.Cbrt(targetParticleCount);
+                int targetParticleCount = Mathf.Max(1, (int)(Volume * particleDensity));
+                int particlesPerAxis = Mathf.Max(1, (int)Mathf.Round(Mathf.Pow(targetParticleCount, 1f / 3f)));
                 return Mathf.Max(1, particlesPerAxis); // Ensure at least 1 particle per axis
             }
         }

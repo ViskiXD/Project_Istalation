@@ -233,7 +233,10 @@ public class SoupFluidController : MonoBehaviour
     {
         if (fluidSimContainer != null)
         {
-            Object.DestroyImmediate(fluidSimContainer);
+            if (Application.isPlaying)
+                Destroy(fluidSimContainer);
+            else
+                DestroyImmediate(fluidSimContainer);
             Invoke(nameof(DelayedSetup), 0.1f);
             Debug.Log("🔄 Completely restarting fluid simulation...");
         }
@@ -315,7 +318,10 @@ public class SoupFluidController : MonoBehaviour
     {
         if (fluidSimContainer != null)
         {
-            DestroyImmediate(fluidSimContainer);
+            if (Application.isPlaying)
+                Destroy(fluidSimContainer);
+            else
+                DestroyImmediate(fluidSimContainer);
         }
     }
 }

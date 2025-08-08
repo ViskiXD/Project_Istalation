@@ -8,6 +8,7 @@ public class PlanetBowlCollision : MonoBehaviour
     [SerializeField] private float dampingForce = 0.95f;
     [SerializeField] private float bounceForce = 0.7f;
     [SerializeField] private bool enableVisualDebug = true;
+    [SerializeField] private bool enableContainmentForces = false;
     
     [Header("Bowl Dimensions")]
     [SerializeField] private float bowlRadius = 2f;
@@ -90,8 +91,11 @@ public class PlanetBowlCollision : MonoBehaviour
         // Update bowl dimensions in case it moves
         UpdateBowlDimensions();
         
-        // Check if planet is inside bowl and apply containment forces
-        CheckBowlContainment();
+        // Optionally apply custom containment forces; otherwise rely solely on physics colliders
+        if (enableContainmentForces)
+        {
+            CheckBowlContainment();
+        }
     }
     
     void CheckBowlContainment()
@@ -139,7 +143,8 @@ public class PlanetBowlCollision : MonoBehaviour
         {
             Vector3 horizontalDirection = new Vector3(relativePosition.x, 0, relativePosition.z).normalized;
             float horizontalForce = (horizontalDistance - maxHorizontalDistance) * containmentForce;
-            force += horizontalDirection * horizontalForce;
+            // Push towards center (opposite of the direction from center to planet)
+            force += -horizontalDirection * horizontalForce;
         }
         
         // Vertical containment (push down if too high, push up if too low)
@@ -217,5 +222,12 @@ public class PlanetBowlCollision : MonoBehaviour
                 planetRigidbody.angularVelocity = Vector3.zero;
             }
         }
+    }
+
+    // Allow external assignment of bowl object at runtime (avoids UnityEditor dependency)
+    public void SetBowlObject(GameObject targetBowl)
+    {
+        bowlObject = targetBowl;
+        UpdateBowlDimensions();
     }
 } 

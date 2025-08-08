@@ -14,6 +14,7 @@ public class PlanetBowlSetup : MonoBehaviour
     
     [Header("Bowl Physics Settings")]
     [SerializeField] private bool makeBowlStatic = true;
+    [SerializeField] private bool forceProjectGravity = true;
     
     void Start()
     {
@@ -67,6 +68,13 @@ public class PlanetBowlSetup : MonoBehaviour
     {
         Debug.Log($"Setting up planet: {planetObject.name}");
         
+        // Ensure project gravity is sane
+        if (forceProjectGravity && Mathf.Approximately(Physics.gravity.sqrMagnitude, 0f))
+        {
+            Physics.gravity = new Vector3(0, -9.81f, 0);
+            Debug.Log("✓ Physics.gravity set to (0,-9.81,0)");
+        }
+
         // Ensure planet has Rigidbody
         Rigidbody planetRb = planetObject.GetComponent<Rigidbody>();
         if (planetRb == null)
@@ -99,57 +107,160 @@ public class PlanetBowlSetup : MonoBehaviour
         {
             Debug.Log("✓ Planet already has a collider");
         }
+        // Ensure collider is not a trigger
+        planetCollider = planetObject.GetComponent<Collider>();
+        if (planetCollider != null)
+        {
+            planetCollider.isTrigger = false;
+        }
     }
     
     void SetupBowl()
     {
         Debug.Log($"Setting up bowl: {bowlObject.name}");
         
-        // Ensure bowl has Rigidbody
+        // Rigidbody/Collider configuration depends on static vs dynamic bowl
         Rigidbody bowlRb = bowlObject.GetComponent<Rigidbody>();
-        if (bowlRb == null)
-        {
-            bowlRb = bowlObject.AddComponent<Rigidbody>();
-            Debug.Log("✓ Added Rigidbody to bowl");
-        }
-        
-        // Configure bowl Rigidbody
+
         if (makeBowlStatic)
         {
-            bowlRb.isKinematic = true;
-            bowlRb.useGravity = false;
-        }
-        else
-        {
-            bowlRb.isKinematic = false;
-            bowlRb.useGravity = true;
-        }
-        
-        Debug.Log("✓ Configured bowl Rigidbody");
-        
-        // Ensure bowl has Collider
-        Collider bowlCollider = bowlObject.GetComponent<Collider>();
-        if (bowlCollider == null)
-        {
-            // Try to add a mesh collider based on the mesh
-            MeshFilter meshFilter = bowlObject.GetComponent<MeshFilter>();
-            if (meshFilter != null && meshFilter.sharedMesh != null)
+            // For a static bowl that can be tilted manually, prefer NO Rigidbody so we can use a non-convex MeshCollider
+            if (bowlRb != null)
             {
-                MeshCollider meshCollider = bowlObject.AddComponent<MeshCollider>();
-                meshCollider.convex = true;
-                Debug.Log("✓ Added MeshCollider to bowl");
+                if (Application.isPlaying)
+                    Destroy(bowlRb);
+                else
+                    DestroyImmediate(bowlRb);
+                bowlRb = null;
+                Debug.Log("✓ Removed Rigidbody from bowl for static setup");
+            }
+
+            // Ensure a non-convex mesh collider exists (prefer adding to the child that actually has the MeshFilter)
+            MeshCollider meshCollider = bowlObject.GetComponent<MeshCollider>();
+            if (meshCollider == null)
+            {
+                GameObject targetForCollider = null;
+                MeshFilter meshFilter = bowlObject.GetComponent<MeshFilter>();
+                if (meshFilter != null && meshFilter.sharedMesh != null)
+                {
+                    targetForCollider = bowlObject;
+                }
+                else
+                {
+                    // Search children for the visual mesh
+                    var childMeshFilters = bowlObject.GetComponentsInChildren<MeshFilter>();
+                    foreach (var mf in childMeshFilters)
+                    {
+                        if (mf != null && mf.sharedMesh != null)
+                        {
+                            targetForCollider = mf.gameObject;
+                            break;
+                        }
+                    }
+                }
+
+                if (targetForCollider != null)
+                {
+                    MeshCollider childMeshCollider = targetForCollider.GetComponent<MeshCollider>();
+                    if (childMeshCollider == null)
+                    {
+                        childMeshCollider = targetForCollider.AddComponent<MeshCollider>();
+                    }
+                    childMeshCollider.convex = false;
+                    childMeshCollider.isTrigger = false;
+                    Debug.Log($"✓ Added/Configured MeshCollider on '{targetForCollider.name}' (non-convex)");
+                }
+                else
+                {
+                    // Fallback to sphere collider on root if no mesh found
+                    SphereCollider sphereCollider = bowlObject.AddComponent<SphereCollider>();
+                    sphereCollider.radius = 2f;
+                    sphereCollider.isTrigger = false;
+                    Debug.Log("✓ Added SphereCollider to bowl (fallback)");
+                }
             }
             else
             {
-                // Fallback to sphere collider
-                SphereCollider sphereCollider = bowlObject.AddComponent<SphereCollider>();
-                sphereCollider.radius = 2f;
-                Debug.Log("✓ Added SphereCollider to bowl (fallback)");
+                meshCollider.convex = false;
+                meshCollider.isTrigger = false;
+                Debug.Log("✓ Configured existing MeshCollider as non-convex");
+            }
+            // Ensure collider is not a trigger
+            Collider bowlColliderNonRigid = bowlObject.GetComponent<Collider>();
+            if (bowlColliderNonRigid != null)
+            {
+                bowlColliderNonRigid.isTrigger = false;
             }
         }
         else
         {
-            Debug.Log("✓ Bowl already has a collider");
+            // Dynamic bowl: keep/add Rigidbody (but note: MeshCollider must be convex with Rigidbody present)
+            if (bowlRb == null)
+            {
+                bowlRb = bowlObject.AddComponent<Rigidbody>();
+                Debug.Log("✓ Added Rigidbody to bowl");
+            }
+            bowlRb.isKinematic = false;
+            bowlRb.useGravity = true;
+
+            // Ensure collider is present and convex
+            MeshCollider meshCollider = bowlObject.GetComponent<MeshCollider>();
+            if (meshCollider == null)
+            {
+                GameObject targetForCollider = null;
+                MeshFilter meshFilter = bowlObject.GetComponent<MeshFilter>();
+                if (meshFilter != null && meshFilter.sharedMesh != null)
+                {
+                    targetForCollider = bowlObject;
+                }
+                else
+                {
+                    var childMeshFilters = bowlObject.GetComponentsInChildren<MeshFilter>();
+                    foreach (var mf in childMeshFilters)
+                    {
+                        if (mf != null && mf.sharedMesh != null)
+                        {
+                            targetForCollider = mf.gameObject;
+                            break;
+                        }
+                    }
+                }
+
+                if (targetForCollider != null)
+                {
+                    MeshCollider childMeshCollider = targetForCollider.GetComponent<MeshCollider>();
+                    if (childMeshCollider == null)
+                    {
+                        childMeshCollider = targetForCollider.AddComponent<MeshCollider>();
+                    }
+                    childMeshCollider.convex = true; // Required when Rigidbody is present
+                    childMeshCollider.isTrigger = false;
+                    Debug.Log($"✓ Added/Configured MeshCollider on '{targetForCollider.name}' (convex for Rigidbody)");
+                }
+                else
+                {
+                    SphereCollider sphereCollider = bowlObject.GetComponent<SphereCollider>();
+                    if (sphereCollider == null)
+                    {
+                        sphereCollider = bowlObject.AddComponent<SphereCollider>();
+                        sphereCollider.radius = 2f;
+                        sphereCollider.isTrigger = false;
+                        Debug.Log("✓ Added SphereCollider to bowl (fallback)");
+                    }
+                }
+            }
+            else
+            {
+                meshCollider.convex = true; // Required when Rigidbody is present
+                meshCollider.isTrigger = false;
+                Debug.Log("✓ Configured existing MeshCollider as convex for Rigidbody");
+            }
+            // Ensure collider is not a trigger
+            Collider bowlColliderRigid = bowlObject.GetComponent<Collider>();
+            if (bowlColliderRigid != null)
+            {
+                bowlColliderRigid.isTrigger = false;
+            }
         }
         
         // Ensure bowl has BowlTiltController
@@ -171,17 +282,17 @@ public class PlanetBowlSetup : MonoBehaviour
         PlanetBowlCollision existingCollision = planetObject.GetComponent<PlanetBowlCollision>();
         if (existingCollision != null)
         {
-            DestroyImmediate(existingCollision);
+            if (Application.isPlaying)
+                Destroy(existingCollision);
+            else
+                DestroyImmediate(existingCollision);
         }
-        
+
         // Add new collision script
         PlanetBowlCollision collisionScript = planetObject.AddComponent<PlanetBowlCollision>();
-        
-        // Configure the script
-        var serializedObject = new UnityEditor.SerializedObject(collisionScript);
-        serializedObject.FindProperty("bowlObject").objectReferenceValue = bowlObject;
-        serializedObject.ApplyModifiedProperties();
-        
+        // Configure the script without relying on UnityEditor APIs
+        collisionScript.SetBowlObject(bowlObject);
+
         Debug.Log("✓ Added PlanetBowlCollision script to planet");
     }
     
