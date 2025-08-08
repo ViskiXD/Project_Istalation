@@ -791,18 +791,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   fluidPosition: {x: 0, y: 0.5, z: 0}
-  fluidSize: {x: 2, y: 1, z: 2}
+  fluidSize: {x: 1, y: 1, z: 1}
   fluidScale: 1
-  soupGravity: -1
-  soupViscosity: 0.3
-  soupDensity: 1000
-  particleCount: 2000
+  soupGravity: -100
+  soupViscosity: 1
+  soupDensity: 3000
+  particleCount: 10000
   soupThickness: 0.7
   renderMode: 0
   particleSize: 0.05
   soupColor:
     serializedVersion: 2
-    key0: {r: 1, g: 1, b: 1, a: 1}
+    key0: {r: 0.5311891, g: 0.40503737, b: 0.7735849, a: 1}
     key1: {r: 1, g: 1, b: 1, a: 1}
     key2: {r: 0, g: 0, b: 0, a: 0}
     key3: {r: 0, g: 0, b: 0, a: 0}

@@ -36,6 +36,7 @@ RWStructuredBuffer<float3> Debug;
 // Settings
 const uint numParticles;
 const float gravity;
+const float3 gravityVec;
 const float deltaTime;
 const float simTime;
 const float collisionDamping;
@@ -113,20 +114,31 @@ void ResolveCollisions(inout float3 pos, inout float3 vel, float collisionDampin
     const float3 edgeDst = halfSize - abs(posLocal);
 
     // Resolve collisions
+    // X collision (side walls)
     if (edgeDst.x <= 0)
     {
         posLocal.x = halfSize.x * sign(posLocal.x);
-        velocityLocal.x *= -1 * collisionDamping;
+        // If velocity is pointing into wall, zero the component, else leave unchanged (prevents energy loss due to constant bouncing)
+        if (sign(posLocal.x) * velocityLocal.x > 0)
+        {
+            velocityLocal.x = 0;
+        }
     }
+    // Y collision (bottom / lid)
     if (edgeDst.y <= 0)
     {
         posLocal.y = halfSize.y * sign(posLocal.y);
-        velocityLocal.y *= -1 * collisionDamping;
+        // Reflect velocity with damping (allows sliding when bowl tilts instead of sticking)
+        velocityLocal.y *= -collisionDamping;
     }
+    // Z collision (side walls)
     if (edgeDst.z <= 0)
     {
         posLocal.z = halfSize.z * sign(posLocal.z);
-        velocityLocal.z *= -1 * collisionDamping;
+        if (sign(posLocal.z) * velocityLocal.z > 0)
+        {
+            velocityLocal.z = 0;
+        }
     }
 
     // Transform resolved position/velocity back to world space
@@ -140,11 +152,12 @@ void ExternalForces(uint3 id : SV_DispatchThreadID)
     if (id.x >= numParticles)
         return;
 
-    // External forces (gravity)
-    Velocities[id.x] += float3(0, gravity, 0) * deltaTime;
+    // Apply gravity (world space downward)
+    float3 newVel = Velocities[id.x] + gravityVec * deltaTime;
+    Velocities[id.x] = newVel;
 
-    // Predict
-    PredictedPositions[id.x] = Positions[id.x] + Velocities[id.x] * 1 / 120.0;
+    // Predict next position using updated velocity
+    PredictedPositions[id.x] = Positions[id.x] + newVel * deltaTime;
 }
 
 [numthreads(ThreadGroupSize, 1, 1)]
@@ -556,7 +569,7 @@ void UpdateWhiteParticles(uint3 id : SV_DispatchThreadID)
     else if (isBubble)
     {
         const float fluidAccelMul = 3; // How fast the bubble accelerates to match velocity with fluid
-        float3 accelerationBuoyancy = float3(0, gravity, 0) * (1 - bubbleBuoyancy);
+        float3 accelerationBuoyancy = gravityVec * (1 - bubbleBuoyancy);
         float3 accelerationFluid = (velocitySum / weightSum - particle.velocity) * fluidAccelMul;
         particle.velocity += (accelerationBuoyancy + accelerationFluid) * deltaTime;
     }
@@ -566,7 +579,7 @@ void UpdateWhiteParticles(uint3 id : SV_DispatchThreadID)
         const float dragMultiplier = 0.04;
         float sqrSpeed = dot(particle.velocity, particle.velocity);
         float3 drag = -normalize(particle.velocity) * sqrSpeed * dragMultiplier;
-        particle.velocity += (float3(0, gravity, 0) + drag) * deltaTime;
+        particle.velocity += (gravityVec + drag) * deltaTime;
     }
 
     float targetScale = isBubble ? bubbleScale : 1;

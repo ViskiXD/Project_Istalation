@@ -4,8 +4,9 @@ const float K_SpikyPow2;
 const float K_SpikyPow3;
 const float K_SpikyPow2Grad;
 const float K_SpikyPow3Grad;
+const float K_Poly6;
 
-float LinearKernel(float dst, float radius)
+static float LinearKernel(float dst, float radius)
 {
     if (dst < radius)
     {
@@ -14,18 +15,17 @@ float LinearKernel(float dst, float radius)
     return 0;
 }
 
-float SmoothingKernelPoly6(float dst, float radius)
+static float SmoothingKernelPoly6(float dst, float radius)
 {
     if (dst < radius)
     {
-        float scale = 315 / (64 * PI * pow(abs(radius), 9));
         float v = radius * radius - dst * dst;
-        return v * v * v * scale;
+        return v * v * v * K_Poly6;
     }
     return 0;
 }
 
-float SpikyKernelPow3(float dst, float radius)
+static float SpikyKernelPow3(float dst, float radius)
 {
     if (dst < radius)
     {
@@ -35,7 +35,7 @@ float SpikyKernelPow3(float dst, float radius)
     return 0;
 }
 
-float SpikyKernelPow2(float dst, float radius)
+static float SpikyKernelPow2(float dst, float radius)
 {
     if (dst < radius)
     {
@@ -45,7 +45,7 @@ float SpikyKernelPow2(float dst, float radius)
     return 0;
 }
 
-float DerivativeSpikyPow3(float dst, float radius)
+static float DerivativeSpikyPow3(float dst, float radius)
 {
     if (dst <= radius)
     {
@@ -55,7 +55,7 @@ float DerivativeSpikyPow3(float dst, float radius)
     return 0;
 }
 
-float DerivativeSpikyPow2(float dst, float radius)
+static float DerivativeSpikyPow2(float dst, float radius)
 {
     if (dst <= radius)
     {

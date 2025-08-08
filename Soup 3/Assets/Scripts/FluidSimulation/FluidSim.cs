@@ -292,6 +292,15 @@ namespace Seb.Fluid.Simulation
             Dispatch(compute, positionBuffer.count, kernelIndex: pressureKernel);
             if (viscosityStrength != 0) Dispatch(compute, positionBuffer.count, kernelIndex: viscosityKernel);
             Dispatch(compute, positionBuffer.count, kernelIndex: updatePositionsKernel);
+
+            // ---- Foam (white particles) ----
+            if (foamActive)
+            {
+                // Update foam particles (simulate, classify, compact)
+                int threadGroups = Mathf.CeilToInt(maxFoamParticleCount / 256f);
+                compute.Dispatch(foamUpdateKernel, (int)threadGroups, 1, 1);
+                compute.Dispatch(foamReorderCopyBackKernel, (int)threadGroups, 1, 1);
+            }
         }
 
         void UpdateSmoothingConstants()
@@ -323,6 +332,7 @@ namespace Seb.Fluid.Simulation
             compute.SetFloat("whiteParticleDeltaTime", frameDeltaTime);
             compute.SetFloat("simTime", simTimer);
             compute.SetFloat("gravity", gravity);
+            compute.SetVector("gravityVec", Vector3.down * Mathf.Abs(gravity));
             compute.SetFloat("collisionDamping", collisionDamping);
             compute.SetFloat("smoothingRadius", smoothingRadius);
             compute.SetFloat("targetDensity", targetDensity);
