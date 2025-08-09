@@ -63,7 +63,7 @@ Shader "Fluid/ParticleBillboard" {
                 // Make quad appear circular by discarding outside radius
                 float2 centred = i.uv - 0.5;
                 if (dot(centred, centred) > 0.25) discard;
-                return float4(i.colour.rgb * float3(0.6,0.8,1.0), 0.6);
+                return float4(i.colour.rgb * float3(0.6,0.8,1.0), 0.1);
 			}
 
 			ENDCG

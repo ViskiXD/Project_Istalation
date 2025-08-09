@@ -146,7 +146,7 @@ namespace Seb.Fluid.Rendering
             mat = new Material(targetShader);
             mat.name = $"Particle Material ({mode})";
             mat.enableInstancing = true;
-            Color lightBlueTrans = new Color(0.6f, 0.8f, 1f, 0.6f);
+            Color lightBlueTrans = new Color(0.6f, 0.8f, 1f, 0.1f);
             if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", lightBlueTrans);
             else if (mat.HasProperty("_Color")) mat.SetColor("_Color", lightBlueTrans);
         }
@@ -162,8 +162,8 @@ namespace Seb.Fluid.Rendering
                 colorKeys[1] = new GradientColorKey(lightBlue, 1f);
                 
                 GradientAlphaKey[] alphaKeys = new GradientAlphaKey[2];
-                alphaKeys[0] = new GradientAlphaKey(0.6f, 0f);
-                alphaKeys[1] = new GradientAlphaKey(0.6f, 1f);
+                alphaKeys[0] = new GradientAlphaKey(0.1f, 0f);
+                alphaKeys[1] = new GradientAlphaKey(0.1f, 1f);
                 
                 colourMap.SetKeys(colorKeys, alphaKeys);
             }
