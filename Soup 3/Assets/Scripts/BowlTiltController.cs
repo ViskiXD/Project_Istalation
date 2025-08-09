@@ -8,6 +8,8 @@ public class BowlTiltController : MonoBehaviour
 
     private Vector3 currentRotation;
 
+    public float MaxTiltAngle => maxTiltAngle;
+
     void Start()
     {
         currentRotation = Vector3.zero;

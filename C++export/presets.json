@@ -1,0 +1,40 @@
+[
+  {
+    "name": "untitled",
+    "preset": {
+      "1st_Head": {
+        "value": 0
+      },
+      "2nd_Head": {
+        "value": 0
+      },
+      "3rd_Head": {
+        "value": 0
+      },
+      "Echo_Rate": {
+        "value": 0
+      },
+      "FeedBack": {
+        "value": 0
+      },
+      "Highpass_FeedBack": {
+        "value": 0
+      },
+      "Lowpass_Delay_FeedBack": {
+        "value": 0
+      },
+      "Lowpass_FeedBack": {
+        "value": 0
+      },
+      "Lowpass_Global_FeedBack": {
+        "value": 0
+      },
+      "Presets": {
+        "value": 1
+      },
+      "Reverb_Gain": {
+        "value": 0
+      }
+    }
+  }
+]

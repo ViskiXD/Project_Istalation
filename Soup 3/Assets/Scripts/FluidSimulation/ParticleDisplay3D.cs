@@ -211,10 +211,8 @@ namespace Seb.Fluid.Rendering
             }
             else
             {
-                // Ensure args buffer exists if we switched rendering mode at runtime
                 if (argsBuffer == null) { CreateArgsBuffer(); }
 
-                // Ensure correct shader & bindings in indirect path
                 if (mode == DisplayMode.Billboard)
                 {
                     if (mat.shader.name != "Fluid/ParticleBillboard")
@@ -259,6 +257,11 @@ namespace Seb.Fluid.Rendering
             }
         }
         
+        static bool IsFinite(Vector3 v)
+        {
+            return float.IsFinite(v.x) && float.IsFinite(v.y) && float.IsFinite(v.z);
+        }
+        
         void RenderParticlesIndirect()
         {
             if (sim.numParticles == 0) return;
@@ -284,29 +287,38 @@ namespace Seb.Fluid.Rendering
             }
             sim.positionBuffer.GetData(positionsCache);
             
-            // Sample every Nth particle
-            int totalToDraw = Mathf.Min(maxInstances, Mathf.CeilToInt(count / Mathf.Max(1f, (float)renderStride)));
+            int stride = Mathf.Max(1, renderStride);
+            int totalToDraw = Mathf.Min(maxInstances, Mathf.CeilToInt(count / (float)stride));
+
+            Quaternion rot = Camera.main ? Camera.main.transform.rotation : Quaternion.identity;
+            Vector3 oneScale = Vector3.one * Mathf.Max(0.01f, scale);
+
             int emitted = 0;
+            int srcBase = 0;
             while (emitted < totalToDraw)
             {
-                int batchCount = Mathf.Min(1023, totalToDraw - emitted);
-                for (int i = 0; i < batchCount; i++)
+                int written = 0;
+                int capacity = Mathf.Min(1023, totalToDraw - emitted);
+                for (int i = 0; i < capacity; i++)
                 {
-                    int srcIndex = (emitted + i) * Mathf.Max(1, renderStride);
-                    if (srcIndex >= count) { batchCount = i; break; }
+                    int srcIndex = (emitted + srcBase + i) * stride;
+                    if (srcIndex >= count) break;
                     Vector3 p = positionsCache[srcIndex];
-                    // Billboard: align quad to camera
-                    Quaternion rot = Camera.main ? Camera.main.transform.rotation : Quaternion.identity;
-                    matrixBuffer[i] = Matrix4x4.TRS(p, rot, Vector3.one * Mathf.Max(0.01f, scale));
+                    if (!IsFinite(p) || p.sqrMagnitude > 1e12f) // skip NaN/Inf and absurd values
+                        continue;
+                    matrixBuffer[written++] = Matrix4x4.TRS(p, rot, oneScale);
                 }
-                if (batchCount > 0)
+
+                if (written > 0)
                 {
-                    Graphics.DrawMeshInstanced(mesh, 0, mat, matrixBuffer, batchCount);
-                    emitted += batchCount;
+                    Graphics.DrawMeshInstanced(mesh, 0, mat, matrixBuffer, written);
+                    emitted += written;
                 }
                 else
                 {
-                    break;
+                    // nothing valid found in this window; advance source window to avoid infinite loop
+                    srcBase += capacity;
+                    if ((emitted + srcBase) * stride >= count) break;
                 }
             }
         }

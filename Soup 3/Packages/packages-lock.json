@@ -1,5 +1,19 @@
 {
   "dependencies": {
+    "com.cycling74.rnbotypes": {
+      "version": "file:RNBOTypes",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
+    "com.cycling74.spaceecho": {
+      "version": "file:SpaceEcho",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {
+        "com.cycling74.rnbotypes": "0.0.2"
+      }
+    },
     "com.unity.ai.navigation": {
       "version": "2.0.7",
       "depth": 0,

@@ -9,7 +9,12 @@ public class PlanetBowlCollision : MonoBehaviour
     [SerializeField] private float bounceForce = 0.7f;
     [SerializeField] private bool enableVisualDebug = true;
     [SerializeField] private bool enableContainmentForces = false;
-    
+
+    [Header("Logging")]
+    [Tooltip("If true, logs a message when colliding with the bowl (rate-limited).")]
+    [SerializeField] private bool logCollisions = false;
+    [SerializeField] private float collisionLogCooldown = 1.0f;
+
     [Header("Bowl Dimensions")]
     [SerializeField] private float bowlRadius = 2f;
     [SerializeField] private float bowlHeight = 1f;
@@ -18,6 +23,7 @@ public class PlanetBowlCollision : MonoBehaviour
     private Rigidbody planetRigidbody;
     private Collider planetCollider;
     private bool isInsideBowl = false;
+    private float _lastCollisionLogTime = -999f;
     
     void Start()
     {
@@ -171,7 +177,11 @@ public class PlanetBowlCollision : MonoBehaviour
             Vector3 bounceVelocity = Vector3.Reflect(planetRigidbody.linearVelocity, collision.contacts[0].normal);
             planetRigidbody.linearVelocity = bounceVelocity * bounceForce;
             
-            Debug.Log("Planet collided with bowl!");
+            if (logCollisions && Time.time - _lastCollisionLogTime > collisionLogCooldown)
+            {
+                _lastCollisionLogTime = Time.time;
+                Debug.Log("Planet collided with bowl!");
+            }
         }
     }
     
@@ -224,7 +234,6 @@ public class PlanetBowlCollision : MonoBehaviour
         }
     }
 
-    // Allow external assignment of bowl object at runtime (avoids UnityEditor dependency)
     public void SetBowlObject(GameObject targetBowl)
     {
         bowlObject = targetBowl;

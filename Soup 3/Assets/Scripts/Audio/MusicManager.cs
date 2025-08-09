@@ -36,7 +36,7 @@ public class MusicManager : MonoBehaviour
 
     void Awake()
     {
-        if (instance != null)
+        if (instance != null && instance != this)
         {
             Destroy(gameObject);
             return;
@@ -45,7 +45,6 @@ public class MusicManager : MonoBehaviour
         DontDestroyOnLoad(gameObject);
 
         audioSource = GetComponent<AudioSource>();
-        // create secondary source for crossfading
         var second = gameObject.AddComponent<AudioSource>();
 
         // Common config helper
@@ -55,19 +54,14 @@ public class MusicManager : MonoBehaviour
             s.loop = true;
             s.spatialBlend = 0f;
             s.rolloffMode = AudioRolloffMode.Logarithmic;
+            s.volume = 0f; // start silent for fade
         }
         ConfigSource(audioSource);
         ConfigSource(second);
 
         sources = new[] { audioSource, second };
 
-        // Initial volumes zero so first fade-in uses correct per-track level
-        audioSource.volume = 0f;
-        second.volume = 0f;
-
-        float initialTargetVol = 1f;
-        if (trackVolumes != null && trackVolumes.Count > 0) initialTargetVol = Mathf.Clamp01(trackVolumes.Count>0?trackVolumes[0]:1f);
-        currentTrackIndex = -1;
+        // Start first track
         if (musicTracks != null && musicTracks.Count > 0)
         {
             PlayNextTrack(fadeIn:true);
@@ -79,18 +73,7 @@ public class MusicManager : MonoBehaviour
 
         // Ensure music keeps playing across scene reloads
         SceneManager.sceneLoaded += (_, __) => {
-            if (!audioSource.isPlaying)
-            {
-                if (musicTracks != null && musicTracks.Count > 0)
-                {
-                    PlayCurrentTrack();
-                }
-                else if (ambientClip != null)
-                {
-                    audioSource.clip = ambientClip;
-                    audioSource.Play();
-                }
-            }
+            // do nothing; sources persist
         };
     }
 
@@ -130,7 +113,7 @@ public class MusicManager : MonoBehaviour
         AudioSource oldSrc = sources[activeSourceIndex];
 
         newSrc.clip = clip;
-        newSrc.volume = fadeInOnly ? 0f : 0f;
+        newSrc.volume = 0f;
         newSrc.Play();
 
         float t = 0f;
