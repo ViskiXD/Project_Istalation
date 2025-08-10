@@ -85,6 +85,12 @@ public class MusicManager : MonoBehaviour
         }
     }
 
+    // Public wrapper for external callers (e.g., controller input)
+    public void NextTrack()
+    {
+        PlayNextTrack(false);
+    }
+
     void PlayNextTrack(bool fadeIn = false)
     {
         if (musicTracks == null || musicTracks.Count == 0) return;

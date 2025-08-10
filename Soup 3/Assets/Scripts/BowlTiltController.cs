@@ -7,6 +7,8 @@ public class BowlTiltController : MonoBehaviour
     [SerializeField] private float tiltSpeed = 70f; // Degrees per second
 
     private Vector3 currentRotation;
+    private Vector3 externalTiltEuler;
+    private bool hasExternalTilt;
 
     public float MaxTiltAngle => maxTiltAngle;
 
@@ -26,8 +28,12 @@ public class BowlTiltController : MonoBehaviour
 
     void Update()
     {
-        HandleInput();
+        if (!hasExternalTilt)
+        {
+            HandleInput();
+        }
         ApplyRotation();
+        hasExternalTilt = false; // external must be refreshed each frame
     }
 
     void HandleInput()
@@ -62,13 +68,16 @@ public class BowlTiltController : MonoBehaviour
 
     void ApplyRotation()
     {
-        transform.rotation = Quaternion.Euler(currentRotation.x, 0f, currentRotation.z);
+        Vector3 euler = hasExternalTilt ? externalTiltEuler : currentRotation;
+        transform.rotation = Quaternion.Euler(euler.x, 0f, euler.z);
     }
 
     [ContextMenu("Reset Bowl")]
     public void ResetBowl()
     {
         currentRotation = Vector3.zero;
+        externalTiltEuler = Vector3.zero;
+        hasExternalTilt = false;
         
         // Also reset soup simulation if present
         SoupFluidController soupController = Object.FindFirstObjectByType<SoupFluidController>();
@@ -80,4 +89,17 @@ public class BowlTiltController : MonoBehaviour
     
     // Public property for soup controller integration
     public Vector3 CurrentTilt => currentRotation;
+
+    /// <summary>
+    /// Allows external systems (e.g., DualSense gyroscope) to set the bowl tilt this frame.
+    /// Keyboard input will be ignored for this frame while this is active.
+    /// </summary>
+    public void SetExternalTilt(Vector3 euler)
+    {
+        euler.x = Mathf.Clamp(euler.x, -maxTiltAngle, maxTiltAngle);
+        euler.z = Mathf.Clamp(euler.z, -maxTiltAngle, maxTiltAngle);
+        externalTiltEuler = euler;
+        currentRotation = euler; // keep state in sync for readers
+        hasExternalTilt = true;
+    }
 }

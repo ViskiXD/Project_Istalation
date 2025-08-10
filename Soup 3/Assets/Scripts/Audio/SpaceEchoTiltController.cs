@@ -6,7 +6,8 @@ using UnityEngine.Audio;
 public class SpaceEchoTiltController : MonoBehaviour
 {
     [Header("Routing")]
-    public AudioMixerGroup targetGroup; // not used directly but kept for clarity
+    public AudioMixerGroup targetGroup; // used to find its AudioMixer for fallback control
+    public AudioMixer explicitMixer;    // optional explicit mixer reference (if group not set)
     public BowlTiltController bowlTilt;
 
     [Header("Parameter Mapping (normalized 0..1)")]
@@ -15,6 +16,7 @@ public class SpaceEchoTiltController : MonoBehaviour
     [Range(0f, 1f)] public float reverbAtMaxTilt = 0.5f;
 
     private SpaceEchoHandle handle;
+    private AudioMixer mixer;
     private int? echoRateIndex;
     private int? feedbackIndex;
     private int? reverbIndex;
@@ -27,6 +29,9 @@ public class SpaceEchoTiltController : MonoBehaviour
 
         handle = new SpaceEchoHandle();
 
+        // Cache mixer for fallback path
+        mixer = explicitMixer != null ? explicitMixer : (targetGroup != null ? targetGroup.audioMixer : null);
+
         echoRateIndex = SpaceEchoHandle.GetFirstParamIndexByName("Echo_Rate");
         feedbackIndex = SpaceEchoHandle.GetFirstParamIndexByName("FeedBack");
         if (!feedbackIndex.HasValue)
@@ -36,35 +41,47 @@ public class SpaceEchoTiltController : MonoBehaviour
 
     void Update()
     {
-        if (handle == null || bowlTilt == null) return;
+        if (bowlTilt == null) return;
 
         Vector3 tilt = bowlTilt.CurrentTilt;
         float maxAngle = Mathf.Max(1f, bowlTilt.MaxTiltAngle);
         float amount = Mathf.Clamp01(new Vector2(tilt.x, tilt.z).magnitude / maxAngle);
 
-        bool any = false;
-        if (echoRateIndex.HasValue)
+        bool setByHandle = false;
+        if (handle != null)
         {
-            handle.SetParamValueNormalized(echoRateIndex.Value, amount * echoRateAtMaxTilt);
-            any = true;
-        }
-        if (feedbackIndex.HasValue)
-        {
-            handle.SetParamValueNormalized(feedbackIndex.Value, amount * feedbackAtMaxTilt);
-            any = true;
-        }
-        if (reverbIndex.HasValue)
-        {
-            handle.SetParamValueNormalized(reverbIndex.Value, amount * reverbAtMaxTilt);
-            any = true;
+            bool any = false;
+            if (echoRateIndex.HasValue)
+            {
+                handle.SetParamValueNormalized(echoRateIndex.Value, amount * echoRateAtMaxTilt);
+                any = true;
+            }
+            if (feedbackIndex.HasValue)
+            {
+                handle.SetParamValueNormalized(feedbackIndex.Value, amount * feedbackAtMaxTilt);
+                any = true;
+            }
+            if (reverbIndex.HasValue)
+            {
+                handle.SetParamValueNormalized(reverbIndex.Value, amount * reverbAtMaxTilt);
+                any = true;
+            }
+            setByHandle = any;
+            handle.Update();
         }
 
-        if (!any && !warned)
+        // Fallback: drive exposed mixer parameters directly (requires you to expose these in the AudioMixer UI)
+        if (!setByHandle && mixer != null)
         {
-            warned = true;
-            Debug.LogWarning("SpaceEchoTiltController: Could not find parameter indices. Check parameter names in the Mixer UI and tell me exact labels.");
+            bool anyMixer = false;
+            anyMixer |= mixer.SetFloat("Echo_Rate", amount * echoRateAtMaxTilt);
+            anyMixer |= mixer.SetFloat("FeedBack", amount * feedbackAtMaxTilt) || mixer.SetFloat("FeedBack_1", amount * feedbackAtMaxTilt);
+            anyMixer |= mixer.SetFloat("Reverb_Gain", amount * reverbAtMaxTilt);
+            if (!anyMixer && !warned)
+            {
+                warned = true;
+                Debug.LogWarning("SpaceEchoTiltController: Neither RNBO handle nor exposed mixer parameters could be set. Ensure the effect is on a Mixer Group and its parameters are exposed with names Echo_Rate, FeedBack (or FeedBack_1), Reverb_Gain.");
+            }
         }
-
-        handle.Update();
     }
 }
