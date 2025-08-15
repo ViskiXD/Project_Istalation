@@ -70,6 +70,18 @@ public class SpaceEchoTiltController : MonoBehaviour
             handle.Update();
         }
 
+        // Also broadcast to all active filters, so all RNBO instances follow the tilt
+        if (RNBOAudioFilter.ActiveFilters.Count > 0)
+        {
+            foreach (var f in RNBOAudioFilter.ActiveFilters)
+            {
+                if (f == null || f.handle == null) continue;
+                if (echoRateIndex.HasValue) f.handle.SetParamValueNormalized(echoRateIndex.Value, amount * echoRateAtMaxTilt);
+                if (feedbackIndex.HasValue) f.handle.SetParamValueNormalized(feedbackIndex.Value, amount * feedbackAtMaxTilt);
+                if (reverbIndex.HasValue) f.handle.SetParamValueNormalized(reverbIndex.Value, amount * reverbAtMaxTilt);
+            }
+        }
+
         // Fallback: drive exposed mixer parameters directly (requires you to expose these in the AudioMixer UI)
         if (!setByHandle && mixer != null)
         {

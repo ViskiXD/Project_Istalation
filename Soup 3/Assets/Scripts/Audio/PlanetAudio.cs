@@ -34,6 +34,12 @@ public class PlanetAudio : MonoBehaviour
             audioSource.clip = collisionClip; // For editor preview convenience
         }
 
+        // Ensure RNBO processing is applied on this AudioSource via RNBOAudioFilter
+        if (GetComponent<RNBOAudioFilter>() == null)
+        {
+            gameObject.AddComponent<RNBOAudioFilter>();
+        }
+
         // Auto-route to a mixer group if none assigned so effects like Space Echo can process the sound
         if (outputGroup == null)
         {
